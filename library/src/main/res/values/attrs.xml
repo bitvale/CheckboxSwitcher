@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CheckboxSwitcher">
+        <attr name="elevation" />
+        <attr name="switcher_width" format="dimension"/>
+        <attr name="switcher_height" format="dimension"/>
+        <attr name="switcher_bg_color" format="color" />
+    </declare-styleable>
+</resources>
