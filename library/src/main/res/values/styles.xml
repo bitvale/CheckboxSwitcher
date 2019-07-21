@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="BaseSwitcher">
-        <item name="switcher_width">@dimen/switcher_width</item>
         <item name="switcher_height">@dimen/switcher_height</item>
         <item name="switcher_bg_color">@color/switcher_bg_color</item>
+        <item name="thumb_on_color">@color/thumb_on_color</item>
+        <item name="thumb_off_color">@color/thumb_off_color</item>
         <item name="elevation">@dimen/switcher_elevation</item>
     </style>
 

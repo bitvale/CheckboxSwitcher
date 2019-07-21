@@ -9,9 +9,10 @@ import android.renderscript.Element
 import android.renderscript.RenderScript
 import android.renderscript.ScriptIntrinsicBlur
 import android.util.AttributeSet
-import android.util.Log
 import android.view.View
 import android.view.ViewOutlineProvider
+import androidx.annotation.ColorInt
+import androidx.annotation.Dimension
 import com.bitvale.checkboxswitcher.commons.isLollipopAndAbove
 import com.bitvale.checkboxswitcher.commons.toPx
 import kotlin.math.min
@@ -38,6 +39,19 @@ class CheckboxSwitcher @JvmOverloads constructor(
     private var shadowOffset = 0f
 
     private val switcherRect = RectF(0f, 0f, 0f, 0f)
+    private val thumbRect = RectF(0f, 0f, 0f, 0f)
+
+    @ColorInt
+    private var bgColor = 0
+    @ColorInt
+    private var onColor = 0
+    @ColorInt
+    private var offColor = 0
+    @ColorInt
+    private var currentColor = 0
+
+    @Dimension(unit = Dimension.PX)
+    private var thumbPadding = 0
 
     init {
         attrs?.let { retrieveAttributes(attrs, defStyleAttr) }
@@ -52,11 +66,11 @@ class CheckboxSwitcher @JvmOverloads constructor(
         switchElevation = typedArray.getDimension(R.styleable.CheckboxSwitcher_elevation, 0f)
 
         defHeight = typedArray.getDimensionPixelOffset(R.styleable.CheckboxSwitcher_switcher_height, 0)
-        defWidth = typedArray.getDimensionPixelOffset(R.styleable.CheckboxSwitcher_switcher_width, 0)
+//        defWidth = typedArray.getDimensionPixelOffset(R.styleable.CheckboxSwitcher_switcher_width, 0)
 
-        val bgColor = typedArray.getColor(R.styleable.CheckboxSwitcher_switcher_bg_color, 0)
-
-        switcherPaint.color = bgColor
+        bgColor = typedArray.getColor(R.styleable.CheckboxSwitcher_switcher_bg_color, 0)
+        onColor = typedArray.getColor(R.styleable.CheckboxSwitcher_thumb_on_color, 0)
+        offColor = typedArray.getColor(R.styleable.CheckboxSwitcher_thumb_off_color, 0)
 
         typedArray.recycle()
 
@@ -69,15 +83,16 @@ class CheckboxSwitcher @JvmOverloads constructor(
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
-        var width = MeasureSpec.getSize(widthMeasureSpec)
         val heightMode = MeasureSpec.getMode(heightMeasureSpec)
         var height = MeasureSpec.getSize(heightMeasureSpec)
 
-        if (widthMode != MeasureSpec.EXACTLY || heightMode != MeasureSpec.EXACTLY) {
-            width = defWidth
+        if (heightMode != MeasureSpec.EXACTLY) {
             height = defHeight
         }
+
+        thumbPadding = (height * 12) / 100 // 12%
+
+        var width = (height * 2 - thumbPadding * 1.5f).toInt()
 
         if (!isLollipopAndAbove()) {
             width += switchElevation.toInt() * 2
@@ -102,6 +117,12 @@ class CheckboxSwitcher @JvmOverloads constructor(
         switcherRect.right = width.toFloat() - shadowOffset
         switcherRect.bottom = height.toFloat() - shadowOffset - shadowOffset / 2
 
+        thumbRect.left = switcherRect.left + thumbPadding
+        thumbRect.top = shadowOffset / 2 + thumbPadding
+        thumbRect.bottom = height - shadowOffset - shadowOffset / 2 - thumbPadding
+        thumbRect.right = thumbRect.left + thumbRect.height()
+
+
         switcherCornerRadius = height / 4f
 
         if (!isLollipopAndAbove()) generateShadow()
@@ -114,7 +135,12 @@ class CheckboxSwitcher @JvmOverloads constructor(
         }
 
         // switcher
+        switcherPaint.color = bgColor
         canvas?.drawRoundRect(switcherRect, switcherCornerRadius, switcherCornerRadius, switcherPaint)
+
+        // thumb
+        switcherPaint.color = offColor
+        canvas?.drawRoundRect(thumbRect, switcherCornerRadius, switcherCornerRadius, switcherPaint)
     }
 
     private fun generateShadow() {

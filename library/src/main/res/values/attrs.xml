@@ -2,8 +2,9 @@
 <resources>
     <declare-styleable name="CheckboxSwitcher">
         <attr name="elevation" />
-        <attr name="switcher_width" format="dimension"/>
         <attr name="switcher_height" format="dimension"/>
         <attr name="switcher_bg_color" format="color" />
+        <attr name="thumb_on_color" format="color" />
+        <attr name="thumb_off_color" format="color" />
     </declare-styleable>
 </resources>

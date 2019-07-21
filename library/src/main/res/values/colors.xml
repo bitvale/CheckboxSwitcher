@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="switcher_bg_color">@android:color/white</color>
+    <color name="thumb_on_color">#95cd75</color>
+    <color name="thumb_off_color">#e5e5e5</color>
 </resources>
