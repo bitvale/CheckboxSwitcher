@@ -1,5 +1,6 @@
 package com.bitvale.checkboxswitcher
 
+import android.animation.ValueAnimator
 import android.annotation.TargetApi
 import android.content.Context
 import android.graphics.*
@@ -9,6 +10,8 @@ import android.renderscript.Element
 import android.renderscript.RenderScript
 import android.renderscript.ScriptIntrinsicBlur
 import android.util.AttributeSet
+import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewOutlineProvider
 import androidx.annotation.ColorInt
@@ -53,8 +56,36 @@ class CheckboxSwitcher @JvmOverloads constructor(
     @Dimension(unit = Dimension.PX)
     private var thumbPadding = 0
 
+    private var touchRect: Rect? = null
+    private var touchOutside = false
+
+    private var elevationAnimator: ValueAnimator? = null
+
+    private var currentElevation = 0f
+        set(value) {
+            if (field != value) {
+                field = value
+                if (!isLaidOut) return
+
+                if (!isLollipopAndAbove()) {
+                    shadowOffset = value
+                    generateShadow()
+                    postInvalidateOnAnimation()
+                } else {
+                    elevation = value
+                }
+            }
+        }
+
     init {
         attrs?.let { retrieveAttributes(attrs, defStyleAttr) }
+        if (!isLollipopAndAbove() && switchElevation > 0f) {
+            shadowPaint.colorFilter = PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
+            shadowPaint.alpha = 51 // 20%
+            setShadowBlurRadius(switchElevation)
+            setLayerType(LAYER_TYPE_SOFTWARE, null)
+        }
+        currentElevation = switchElevation
     }
 
     private fun retrieveAttributes(attrs: AttributeSet, defStyleAttr: Int) {
@@ -66,20 +97,12 @@ class CheckboxSwitcher @JvmOverloads constructor(
         switchElevation = typedArray.getDimension(R.styleable.CheckboxSwitcher_elevation, 0f)
 
         defHeight = typedArray.getDimensionPixelOffset(R.styleable.CheckboxSwitcher_switcher_height, 0)
-//        defWidth = typedArray.getDimensionPixelOffset(R.styleable.CheckboxSwitcher_switcher_width, 0)
 
         bgColor = typedArray.getColor(R.styleable.CheckboxSwitcher_switcher_bg_color, 0)
         onColor = typedArray.getColor(R.styleable.CheckboxSwitcher_thumb_on_color, 0)
         offColor = typedArray.getColor(R.styleable.CheckboxSwitcher_thumb_off_color, 0)
 
         typedArray.recycle()
-
-        if (!isLollipopAndAbove() && switchElevation > 0f) {
-            shadowPaint.colorFilter = PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
-            shadowPaint.alpha = 51 // 20%
-            setShadowBlurRadius(switchElevation)
-            setLayerType(LAYER_TYPE_SOFTWARE, null)
-        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -105,11 +128,10 @@ class CheckboxSwitcher @JvmOverloads constructor(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
 
-        if (isLollipopAndAbove()) {
-            outlineProvider = SwitchOutline(w, h)
-            elevation = switchElevation
-        } else {
+        if (!isLollipopAndAbove()) {
             shadowOffset = switchElevation
+        } else {
+            elevation = switchElevation
         }
 
         switcherRect.left = shadowOffset
@@ -122,10 +144,13 @@ class CheckboxSwitcher @JvmOverloads constructor(
         thumbRect.bottom = height - shadowOffset - shadowOffset / 2 - thumbPadding
         thumbRect.right = thumbRect.left + thumbRect.height()
 
-
         switcherCornerRadius = height / 4f
 
-        if (!isLollipopAndAbove()) generateShadow()
+        if (!isLollipopAndAbove()) {
+            generateShadow()
+        } else {
+            outlineProvider = SwitchOutline(width, height)
+        }
     }
 
     override fun onDraw(canvas: Canvas?) {
@@ -172,6 +197,49 @@ class CheckboxSwitcher @JvmOverloads constructor(
     private fun setShadowBlurRadius(elevation: Float) {
         val maxElevation = context.toPx(24f)
         switchElevation = min(25f * (elevation / maxElevation), 25f)
+    }
+
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        if (event?.action == MotionEvent.ACTION_DOWN) {
+            touchRect = Rect(left, top, right, bottom)
+            updateElevation(true)
+        }
+        if (event?.action == MotionEvent.ACTION_MOVE) {
+            if (touchOutside) return false
+            if (touchRect?.contains(left + event.x.toInt(), top + event.y.toInt()) == false) {
+                updateElevation(false)
+                touchOutside = true
+                return false
+            }
+        }
+        if (event?.action == MotionEvent.ACTION_UP) {
+            if (touchOutside) {
+                touchOutside = false
+                return false
+            }
+            animateSwitch()
+            updateElevation(false)
+        }
+        return true
+    }
+
+    private fun animateSwitch() {
+
+    }
+
+    private fun updateElevation(pressed: Boolean) {
+        val to = if (pressed) switchElevation / 2
+        else switchElevation
+
+        elevationAnimator?.cancel()
+
+        elevationAnimator = ValueAnimator.ofFloat(currentElevation, to).apply {
+            addUpdateListener {
+                currentElevation = it.animatedValue as Float
+            }
+            duration = 250
+            start()
+        }
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
