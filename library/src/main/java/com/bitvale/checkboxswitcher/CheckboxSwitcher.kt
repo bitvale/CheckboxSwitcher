@@ -1,5 +1,7 @@
 package com.bitvale.checkboxswitcher
 
+import android.animation.AnimatorSet
+import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.annotation.TargetApi
 import android.content.Context
@@ -16,8 +18,9 @@ import android.view.View
 import android.view.ViewOutlineProvider
 import androidx.annotation.ColorInt
 import androidx.annotation.Dimension
-import com.bitvale.checkboxswitcher.commons.isLollipopAndAbove
-import com.bitvale.checkboxswitcher.commons.toPx
+import androidx.core.animation.doOnStart
+import androidx.core.graphics.withTranslation
+import com.bitvale.checkboxswitcher.commons.*
 import kotlin.math.min
 
 /**
@@ -33,7 +36,7 @@ class CheckboxSwitcher @JvmOverloads constructor(
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var defHeight = 0
-    private var defWidth = 0
+    private var checked = false
 
     private var switcherCornerRadius = 0f
 
@@ -51,7 +54,7 @@ class CheckboxSwitcher @JvmOverloads constructor(
     @ColorInt
     private var offColor = 0
     @ColorInt
-    private var currentColor = 0
+    private var thumbColor = 0
 
     @Dimension(unit = Dimension.PX)
     private var thumbPadding = 0
@@ -59,7 +62,10 @@ class CheckboxSwitcher @JvmOverloads constructor(
     private var touchRect: Rect? = null
     private var touchOutside = false
 
+    private var animatorSet: AnimatorSet? = null
+
     private var elevationAnimator: ValueAnimator? = null
+    private var thumbTranslateX = 0f
 
     private var currentElevation = 0f
         set(value) {
@@ -85,6 +91,8 @@ class CheckboxSwitcher @JvmOverloads constructor(
             setShadowBlurRadius(switchElevation)
             setLayerType(LAYER_TYPE_SOFTWARE, null)
         }
+        thumbColor = if (checked) onColor
+        else offColor
         currentElevation = switchElevation
     }
 
@@ -164,8 +172,12 @@ class CheckboxSwitcher @JvmOverloads constructor(
         canvas?.drawRoundRect(switcherRect, switcherCornerRadius, switcherCornerRadius, switcherPaint)
 
         // thumb
-        switcherPaint.color = offColor
-        canvas?.drawRoundRect(thumbRect, switcherCornerRadius, switcherCornerRadius, switcherPaint)
+        canvas?.withTranslation(
+            x = thumbTranslateX
+        ) {
+            switcherPaint.color = thumbColor
+            drawRoundRect(thumbRect, switcherCornerRadius, switcherCornerRadius, switcherPaint)
+        }
     }
 
     private fun generateShadow() {
@@ -224,7 +236,47 @@ class CheckboxSwitcher @JvmOverloads constructor(
     }
 
     private fun animateSwitch() {
+        animatorSet?.cancel()
+        animatorSet = AnimatorSet()
 
+        var translateA = 0f
+        var translateB = (width - shadowOffset * 2 - thumbPadding * 2 - thumbRect.width())
+
+        if (checked) {
+            translateA = translateB
+            translateB = 0f
+        }
+
+        val toColor = if (!checked) onColor else offColor
+
+        val translateAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            addUpdateListener {
+                val value = it.animatedValue as Float
+                thumbTranslateX = lerp(translateA, translateB, value)
+                invalidate()
+            }
+
+            interpolator = BounceInterpolator(BOUNCE_ANIM_AMPLITUDE, BOUNCE_ANIM_FREQUENCY)
+            duration = TRANSLATE_ANIMATION_DURATION
+        }
+
+        val colorAnimator = ValueAnimator().apply {
+            addUpdateListener {
+                thumbColor = it.animatedValue as Int
+            }
+            setIntValues(thumbColor, toColor)
+            setEvaluator(ArgbEvaluator())
+            duration = COLOR_ANIMATION_DURATION
+        }
+
+        animatorSet?.apply {
+            doOnStart {
+                checked = !checked
+//                listener?.invoke(checked)
+            }
+            playTogether(translateAnimator, colorAnimator)
+            start()
+        }
     }
 
     private fun updateElevation(pressed: Boolean) {
@@ -237,7 +289,7 @@ class CheckboxSwitcher @JvmOverloads constructor(
             addUpdateListener {
                 currentElevation = it.animatedValue as Float
             }
-            duration = 250
+            duration = 200
             start()
         }
     }
