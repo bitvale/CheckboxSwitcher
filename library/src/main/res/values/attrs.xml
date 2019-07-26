@@ -7,5 +7,6 @@
         <attr name="thumb_on_color" format="color" />
         <attr name="thumb_off_color" format="color" />
         <attr name="android:checked" format="boolean" />
+        <attr name="thumb_icon" format="reference"/>
     </declare-styleable>
 </resources>

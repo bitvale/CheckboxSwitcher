@@ -14,7 +14,6 @@ import android.renderscript.Element
 import android.renderscript.RenderScript
 import android.renderscript.ScriptIntrinsicBlur
 import android.util.AttributeSet
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewOutlineProvider
@@ -36,6 +35,10 @@ class CheckboxSwitcher @JvmOverloads constructor(
 
     private val switcherPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val iconPaint = Paint().apply {
+        isAntiAlias = true
+        isFilterBitmap = true
+    }
 
     private var defHeight = 0
     var isChecked = false
@@ -48,6 +51,7 @@ class CheckboxSwitcher @JvmOverloads constructor(
 
     private val switcherRect = RectF(0f, 0f, 0f, 0f)
     private val thumbRect = RectF(0f, 0f, 0f, 0f)
+    private var iconRect = RectF(0f, 0f, 0f, 0f)
 
     @ColorInt
     private var bgColor = 0
@@ -57,6 +61,8 @@ class CheckboxSwitcher @JvmOverloads constructor(
     private var offColor = 0
     @ColorInt
     private var thumbColor = 0
+
+    private var thumbIcon: Bitmap? = null
 
     @Dimension(unit = Dimension.PX)
     private var thumbPadding = 0
@@ -93,8 +99,13 @@ class CheckboxSwitcher @JvmOverloads constructor(
             setShadowBlurRadius(switchElevation)
             setLayerType(LAYER_TYPE_SOFTWARE, null)
         }
-        thumbColor = if (isChecked) onColor
-        else offColor
+        if (isChecked) {
+            thumbColor = onColor
+            iconPaint.alpha = OPAQUE.toInt()
+        } else {
+            thumbColor = offColor
+            iconPaint.alpha = TRANSPARENT.toInt()
+        }
         currentElevation = switchElevation
     }
 
@@ -113,6 +124,12 @@ class CheckboxSwitcher @JvmOverloads constructor(
         bgColor = typedArray.getColor(R.styleable.CheckboxSwitcher_switcher_bg_color, 0)
         onColor = typedArray.getColor(R.styleable.CheckboxSwitcher_thumb_on_color, 0)
         offColor = typedArray.getColor(R.styleable.CheckboxSwitcher_thumb_off_color, 0)
+
+        val drawableResId = typedArray.getResourceId(R.styleable.CheckboxSwitcher_thumb_icon, 0)
+        if (drawableResId > 0) {
+            val drawable = context.getThumbDrawable(drawableResId)
+            thumbIcon = drawable.getBitmapFromDrawable()
+        }
 
         typedArray.recycle()
     }
@@ -183,6 +200,18 @@ class CheckboxSwitcher @JvmOverloads constructor(
         ) {
             switcherPaint.color = thumbColor
             drawRoundRect(thumbRect, switcherCornerRadius, switcherCornerRadius, switcherPaint)
+            drawIcon(canvas)
+        }
+    }
+
+    private fun drawIcon(canvas: Canvas?) {
+        thumbIcon?.let {
+            val offset = thumbRect.width() / 2 - thumbPadding
+            iconRect.left = thumbRect.centerX() - offset
+            iconRect.top = thumbRect.centerY() - offset
+            iconRect.right = thumbRect.centerX() + offset
+            iconRect.bottom = thumbRect.centerY() + offset
+            canvas?.drawBitmap(it, null, iconRect, iconPaint)
         }
     }
 
@@ -247,10 +276,14 @@ class CheckboxSwitcher @JvmOverloads constructor(
 
         var translateA = 0f
         var translateB = (width - shadowOffset * 2 - thumbPadding * 2 - thumbRect.width())
+        var alphaA = TRANSPARENT
+        var alphaB = OPAQUE
 
         if (isChecked) {
             translateA = translateB
             translateB = 0f
+            alphaA = OPAQUE
+            alphaB = TRANSPARENT
         }
 
         val toColor = if (!isChecked) onColor else offColor
@@ -264,6 +297,14 @@ class CheckboxSwitcher @JvmOverloads constructor(
 
             interpolator = BounceInterpolator(BOUNCE_ANIM_AMPLITUDE, BOUNCE_ANIM_FREQUENCY)
             duration = TRANSLATE_ANIMATION_DURATION
+        }
+
+        val alphaAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            addUpdateListener {
+                val value = it.animatedValue as Float
+                iconPaint.alpha = lerp(alphaA, alphaB, value).toInt()
+            }
+            duration = ALPHA_ANIMATION_DURATION
         }
 
         val colorAnimator = ValueAnimator().apply {
@@ -280,7 +321,7 @@ class CheckboxSwitcher @JvmOverloads constructor(
                 isChecked = !isChecked
                 listener?.invoke(isChecked)
             }
-            playTogether(translateAnimator, colorAnimator)
+            playTogether(translateAnimator, colorAnimator, alphaAnimator)
             start()
         }
     }
@@ -327,10 +368,11 @@ class CheckboxSwitcher @JvmOverloads constructor(
                 if (!checked) {
                     thumbColor = offColor
                     thumbTranslateX = 1f
+                    iconPaint.alpha = TRANSPARENT.toInt()
                 } else {
                     thumbColor = onColor
                     thumbTranslateX = (width - shadowOffset * 2 - thumbPadding * 2 - thumbRect.width())
-                    Log.d("CheckboxSwitcher", "setChecked: thumbTranslateX = " + thumbTranslateX)
+                    iconPaint.alpha = OPAQUE.toInt()
                 }
                 invalidate()
             }

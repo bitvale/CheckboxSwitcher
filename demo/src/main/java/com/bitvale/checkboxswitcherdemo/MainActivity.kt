@@ -11,6 +11,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         switcher_two.setOnCheckedChangeListener {
             switcher_one.setChecked(!switcher_one.isChecked)
+            switcher_three.setChecked(!switcher_three.isChecked)
         }
     }
 }
