@@ -7,6 +7,8 @@ import android.annotation.TargetApi
 import android.content.Context
 import android.graphics.*
 import android.os.Build
+import android.os.Bundle
+import android.os.Parcelable
 import android.renderscript.Allocation
 import android.renderscript.Element
 import android.renderscript.RenderScript
@@ -36,7 +38,7 @@ class CheckboxSwitcher @JvmOverloads constructor(
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var defHeight = 0
-    private var checked = false
+    var isChecked = false
 
     private var switcherCornerRadius = 0f
 
@@ -91,7 +93,7 @@ class CheckboxSwitcher @JvmOverloads constructor(
             setShadowBlurRadius(switchElevation)
             setLayerType(LAYER_TYPE_SOFTWARE, null)
         }
-        thumbColor = if (checked) onColor
+        thumbColor = if (isChecked) onColor
         else offColor
         currentElevation = switchElevation
     }
@@ -105,6 +107,8 @@ class CheckboxSwitcher @JvmOverloads constructor(
         switchElevation = typedArray.getDimension(R.styleable.CheckboxSwitcher_elevation, 0f)
 
         defHeight = typedArray.getDimensionPixelOffset(R.styleable.CheckboxSwitcher_switcher_height, 0)
+
+        isChecked = typedArray.getBoolean(R.styleable.CheckboxSwitcher_android_checked, false)
 
         bgColor = typedArray.getColor(R.styleable.CheckboxSwitcher_switcher_bg_color, 0)
         onColor = typedArray.getColor(R.styleable.CheckboxSwitcher_thumb_on_color, 0)
@@ -159,6 +163,8 @@ class CheckboxSwitcher @JvmOverloads constructor(
         } else {
             outlineProvider = SwitchOutline(width, height)
         }
+
+        if (isChecked) thumbTranslateX = width - shadowOffset * 2 - thumbPadding * 2 - thumbRect.width()
     }
 
     override fun onDraw(canvas: Canvas?) {
@@ -242,12 +248,12 @@ class CheckboxSwitcher @JvmOverloads constructor(
         var translateA = 0f
         var translateB = (width - shadowOffset * 2 - thumbPadding * 2 - thumbRect.width())
 
-        if (checked) {
+        if (isChecked) {
             translateA = translateB
             translateB = 0f
         }
 
-        val toColor = if (!checked) onColor else offColor
+        val toColor = if (!isChecked) onColor else offColor
 
         val translateAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
             addUpdateListener {
@@ -271,8 +277,8 @@ class CheckboxSwitcher @JvmOverloads constructor(
 
         animatorSet?.apply {
             doOnStart {
-                checked = !checked
-//                listener?.invoke(checked)
+                isChecked = !isChecked
+                listener?.invoke(isChecked)
             }
             playTogether(translateAnimator, colorAnimator)
             start()
@@ -292,6 +298,64 @@ class CheckboxSwitcher @JvmOverloads constructor(
             duration = 200
             start()
         }
+    }
+
+    private var listener: ((isChecked: Boolean) -> Unit)? = null
+
+    /**
+     * Register a callback to be invoked when the isChecked state of this switch
+     * changes.
+     *
+     * @param listener the callback to call on isChecked state change
+     */
+    fun setOnCheckedChangeListener(listener: (isChecked: Boolean) -> Unit) {
+        this.listener = listener
+    }
+
+    /**
+     * <p>Changes the isChecked state of this switch.</p>
+     *
+     * @param checked true to check the switch, false to uncheck it
+     * @param withAnimation use animation
+     */
+    fun setChecked(checked: Boolean, withAnimation: Boolean = true) {
+        if (this.isChecked != checked) {
+            if (withAnimation) {
+                animateSwitch()
+            } else {
+                this.isChecked = checked
+                if (!checked) {
+                    thumbColor = offColor
+                    thumbTranslateX = 1f
+                } else {
+                    thumbColor = onColor
+                    thumbTranslateX = (width - shadowOffset * 2 - thumbPadding * 2 - thumbRect.width())
+                    Log.d("CheckboxSwitcher", "setChecked: thumbTranslateX = " + thumbTranslateX)
+                }
+                invalidate()
+            }
+        }
+    }
+
+    override fun onSaveInstanceState(): Parcelable {
+        super.onSaveInstanceState()
+        return Bundle().apply {
+            putBoolean(KEY_CHECKED, isChecked)
+            putParcelable(STATE, super.onSaveInstanceState())
+        }
+    }
+
+    override fun onRestoreInstanceState(state: Parcelable?) {
+        if (state is Bundle) {
+            super.onRestoreInstanceState(state.getParcelable(STATE))
+            isChecked = state.getBoolean(KEY_CHECKED)
+            if (!isChecked) forceUncheck()
+        }
+    }
+
+    private fun forceUncheck() {
+        thumbColor = offColor
+        thumbTranslateX = 1f
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)

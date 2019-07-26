@@ -7,3 +7,6 @@ const val TRANSLATE_ANIMATION_DURATION = 450L
 const val COLOR_ANIMATION_DURATION = 200L
 const val BOUNCE_ANIM_AMPLITUDE = 0.15
 const val BOUNCE_ANIM_FREQUENCY = 8.0
+
+const val STATE = "switch_state"
+const val KEY_CHECKED = "checked"

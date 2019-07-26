@@ -6,5 +6,6 @@
         <attr name="switcher_bg_color" format="color" />
         <attr name="thumb_on_color" format="color" />
         <attr name="thumb_off_color" format="color" />
+        <attr name="android:checked" format="boolean" />
     </declare-styleable>
 </resources>
